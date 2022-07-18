@@ -13,7 +13,7 @@ public class OrderServiceTests
     private IOrders _orders;
     private INotify _notify;
     private IUsers _users;
-    private OrderService _orderService;
+    private IOrderService _orderService;
 
     [SetUp]
     public void Setup()
@@ -25,9 +25,9 @@ public class OrderServiceTests
 
         _orderService = new OrderService(
             _logistic,
-            _orders,
-            _notify,
-            _users);
+            _orders);
+        _orderService = new CheckReserveDecorator(_orderService, _orders, _notify);
+        _orderService = new UserValidateDecorator(_orderService, _users);
     }
 
     [Test]
