@@ -43,7 +43,7 @@ public class OrderService
             "api/reserve",
             new { productId, quantity });
         productReserveResponse.EnsureSuccessStatusCode();
-        var sessionId = await userResponse.Content.ReadAsAsync<Guid>();
+        var sessionId = await productReserveResponse.Content.ReadAsAsync<Guid>();
         if (sessionId == Guid.Empty)
         {
             // api return empty guid when product is not enough
