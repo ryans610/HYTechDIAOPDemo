@@ -93,8 +93,3 @@ public class OrderService
         return true;
     }
 }
-
-public class UserInvalidException : Exception
-{
-    public Guid UserId { get; set; }
-}
