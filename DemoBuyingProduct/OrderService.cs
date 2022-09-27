@@ -12,7 +12,7 @@ namespace DemoBuyingProduct;
 
 public class OrderService
 {
-    public async Task<bool> OrderAsync(
+    public async Task<Guid> OrderAsync(
         Guid userId,
         Guid productId,
         int quantity)
@@ -51,8 +51,10 @@ public class OrderService
             logger.LogInformation(
                 "商品{productId}數量少於{quantity}",
                 productId, quantity);
-
-            return false;
+            throw new ProductNotEnoughException
+            {
+                ProductId = productId,
+            };
         }
 
         // calculate total price
@@ -90,6 +92,6 @@ public class OrderService
         await smtpClient.SendAsync(message);
         await smtpClient.DisconnectAsync(true);
 
-        return true;
+        return orderId;
     }
 }
