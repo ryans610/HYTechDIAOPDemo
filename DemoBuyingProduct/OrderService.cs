@@ -12,7 +12,7 @@ namespace DemoBuyingProduct;
 
 public class OrderService
 {
-    public async Task<bool> OrderAsync(
+    public async Task<Guid> OrderAsync(
         Guid userId,
         Guid productId,
         int quantity)
@@ -32,8 +32,10 @@ public class OrderService
         {
             // api return empty guid when product is not enough
             LogProductNotEnough(productId, quantity);
-
-            return false;
+            throw new ProductNotEnoughException
+            {
+                ProductId = productId,
+            };
         }
 
         // calculate total price
@@ -49,7 +51,7 @@ public class OrderService
         // notify user for order established
         await NotifyUserAsync(orderId);
 
-        return true;
+        return orderId;
     }
 
     private async Task NotifyUserAsync(Guid orderId)
@@ -67,7 +69,7 @@ public class OrderService
         await smtpClient.SendAsync(message);
         await smtpClient.DisconnectAsync(true);
     }
-
+    
     private async Task CompleteProductReserveAsync(Guid sessionId)
     {
         await new HttpClient
