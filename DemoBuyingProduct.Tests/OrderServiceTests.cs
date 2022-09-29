@@ -29,5 +29,18 @@ public class OrderServiceTests
         _orderService = new OrderService(_user, _product, _notification, _order, _price, _log);
     }
 
+    [Test]
+    public async Task Success()
+    {
+        _user.IsUserValidAsync(_userId).Returns(true);
+        _product.ReserveProductAsync(_productId, Arg.Any<int>()).Returns(_sessionId);
+        _product.GetPriceAsync(_productId).Returns(30);
+        _order.SaveOrderAsync(_userId, _productId, Arg.Any<int>(), Arg.Any<int>()).Returns(_orderId);
 
+        var result = await _orderService.OrderAsync(_userId, _productId, 5);
+
+        await _product.Received(1).CompleteProductReserveAsync(_sessionId);
+        await _notification.Received(1).NotifyUserAsync(_orderId);
+        Assert.That(result, Is.EqualTo(_orderId));
+    }
 }
