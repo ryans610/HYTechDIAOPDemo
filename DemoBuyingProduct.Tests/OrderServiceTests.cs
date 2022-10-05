@@ -43,4 +43,25 @@ public class OrderServiceTests
         await _notification.Received(1).NotifyUserAsync(_orderId);
         Assert.That(result, Is.EqualTo(_orderId));
     }
+
+    [Test]
+    public void UserNotValid()
+    {
+        _user.IsUserValidAsync(_userId).Returns(false);
+
+        var exception = Assert.ThrowsAsync<UserInvalidException>(
+            () => _orderService.OrderAsync(_userId, _productId, 5));
+        Assert.That(exception?.UserId, Is.EqualTo(_userId));
+    }
+
+    [Test]
+    public void ProductNotEnough()
+    {
+        _user.IsUserValidAsync(_userId).Returns(true);
+        _product.ReserveProductAsync(_productId, Arg.Any<int>()).Returns(Guid.Empty);
+
+        var exception = Assert.ThrowsAsync<ProductNotEnoughException>(
+            () => _orderService.OrderAsync(_userId, _productId, 5));
+        Assert.That(exception?.ProductId, Is.EqualTo(_productId));
+    }
 }
