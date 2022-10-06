@@ -44,36 +44,75 @@ public class OrderServiceTests
     [Test]
     public async Task Success()
     {
-        _user.IsUserValidAsync(_userId).Returns(true);
-        _product.ReserveProductAsync(_productId, Arg.Any<int>()).Returns(_sessionId);
-        _product.GetPriceAsync(_productId).Returns(30);
-        _order.SaveOrderAsync(_userId, _productId, Arg.Any<int>(), Arg.Any<int>()).Returns(_orderId);
+        GivenUserValid(true);
+        GivenSessionId(_sessionId);
+        GivenPrice(30);
+        GivenOrderId(_orderId);
 
-        var result = await _orderService.OrderAsync(_userId, _productId, 5);
-
-        await _product.Received(1).CompleteProductReserveAsync(_sessionId);
-        await _notification.Received(1).NotifyUserAsync(_orderId);
-        Assert.That(result, Is.EqualTo(_orderId));
+        await ShouldSuccess();
+        await ShouldCompleteReserve();
+        await ShouldNotifyUser();
     }
 
     [Test]
     public void UserNotValid()
     {
-        _user.IsUserValidAsync(_userId).Returns(false);
+        GivenUserValid(false);
 
-        var exception = Assert.ThrowsAsync<UserInvalidException>(
-            () => _orderService.OrderAsync(_userId, _productId, 5));
+        var exception = ShouldThrow<UserInvalidException>();
         Assert.That(exception?.UserId, Is.EqualTo(_userId));
     }
 
     [Test]
     public void ProductNotEnough()
     {
-        _user.IsUserValidAsync(_userId).Returns(true);
-        _product.ReserveProductAsync(_productId, Arg.Any<int>()).Returns(Guid.Empty);
+        GivenUserValid(true);
+        GivenSessionId(Guid.Empty);
 
-        var exception = Assert.ThrowsAsync<ProductNotEnoughException>(
-            () => _orderService.OrderAsync(_userId, _productId, 5));
+        var exception = ShouldThrow<ProductNotEnoughException>();
         Assert.That(exception?.ProductId, Is.EqualTo(_productId));
+    }
+
+    private async Task ShouldNotifyUser()
+    {
+        await _notification.Received(1).NotifyUserAsync(_orderId);
+    }
+
+    private async Task ShouldCompleteReserve()
+    {
+        await _product.Received(1).CompleteProductReserveAsync(_sessionId);
+    }
+
+    private async Task ShouldSuccess()
+    {
+        var result = await _orderService.OrderAsync(_userId, _productId, 5);
+        Assert.That(result, Is.EqualTo(_orderId));
+    }
+
+    private TException ShouldThrow<TException>()
+        where TException : Exception
+    {
+        return Assert.ThrowsAsync<TException>(
+            () => _orderService.OrderAsync(_userId, _productId, 5));
+    }
+
+    private void GivenOrderId(Guid orderId)
+    {
+        _order.SaveOrderAsync(_userId, _productId, Arg.Any<int>(), Arg.Any<int>()).Returns(orderId);
+    }
+
+    private void GivenPrice(int price)
+    {
+        _product.GetPriceAsync(_productId).Returns(price);
+    }
+
+    private void GivenSessionId(Guid sessionId)
+    {
+        _product.ReserveProductAsync(_productId, Arg.Any<int>()).Returns(sessionId);
+    }
+
+    private void GivenUserValid(bool isValid)
+    {
+        _user.IsUserValidAsync(_userId).Returns(isValid);
     }
 }
