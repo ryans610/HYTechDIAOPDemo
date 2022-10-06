@@ -1,6 +1,6 @@
 namespace DemoBuyingProduct;
 
-public class OrderService
+public class OrderService : IOrderService
 {
     public OrderService(
         IUser user,

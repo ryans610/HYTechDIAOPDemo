@@ -17,7 +17,7 @@ public class OrderServiceTests
     private IPriceCalculator _price;
     private ILog _log;
 
-    private OrderService _orderService;
+    private IOrderService _orderService;
 
     [SetUp]
     public void Setup()
@@ -29,7 +29,7 @@ public class OrderServiceTests
             .AddSingleton(Substitute.For<IOrder>())
             .AddSingleton<IPriceCalculator>(new StandardPriceCalculator())
             .AddSingleton(Substitute.For<ILog>())
-            .AddSingleton<OrderService>()
+            .AddSingleton<IOrderService, OrderService>()
             .BuildServiceProvider();
 
         _user = services.GetRequiredService<IUser>();
@@ -38,7 +38,7 @@ public class OrderServiceTests
         _order = services.GetRequiredService<IOrder>();
         _price = services.GetRequiredService<IPriceCalculator>();
         _log = services.GetRequiredService<ILog>();
-        _orderService = services.GetRequiredService<OrderService>();
+        _orderService = services.GetRequiredService<IOrderService>();
     }
 
     [Test]
