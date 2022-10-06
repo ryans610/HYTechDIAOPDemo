@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 namespace DemoBuyingProduct.Tests;
 
 [TestFixture]
@@ -20,13 +22,23 @@ public class OrderServiceTests
     [SetUp]
     public void Setup()
     {
-        _user = Substitute.For<IUser>();
-        _product = Substitute.For<IProduct>();
-        _notification = Substitute.For<INotification>();
-        _order = Substitute.For<IOrder>();
-        _price = new StandardPriceCalculator();
-        _log = Substitute.For<ILog>();
-        _orderService = new OrderService(_user, _product, _notification, _order, _price, _log);
+        var services = new ServiceCollection()
+            .AddSingleton(Substitute.For<IUser>())
+            .AddSingleton(Substitute.For<IProduct>())
+            .AddSingleton(Substitute.For<INotification>())
+            .AddSingleton(Substitute.For<IOrder>())
+            .AddSingleton<IPriceCalculator>(new StandardPriceCalculator())
+            .AddSingleton(Substitute.For<ILog>())
+            .AddSingleton<OrderService>()
+            .BuildServiceProvider();
+
+        _user = services.GetRequiredService<IUser>();
+        _product = services.GetRequiredService<IProduct>();
+        _notification = services.GetRequiredService<INotification>();
+        _order = services.GetRequiredService<IOrder>();
+        _price = services.GetRequiredService<IPriceCalculator>();
+        _log = services.GetRequiredService<ILog>();
+        _orderService = services.GetRequiredService<OrderService>();
     }
 
     [Test]
