@@ -71,6 +71,12 @@ public class OrderServiceTests
 
         var exception = ShouldThrow<ProductNotEnoughException>();
         Assert.That(exception?.ProductId, Is.EqualTo(_productId));
+        ShouldLogProductNotEnough();
+    }
+
+    private void ShouldLogProductNotEnough()
+    {
+        _log.Received(1).LogProductNotEnough(_productId, 5);
     }
 
     private async Task ShouldNotifyUser()
