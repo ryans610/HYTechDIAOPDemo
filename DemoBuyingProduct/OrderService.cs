@@ -18,15 +18,7 @@ public class OrderService
         int quantity)
     {
         // check is valid user
-        var userHttpClient = new HttpClient
-        {
-            BaseAddress = new Uri("http://my-users"),
-        };
-        var userResponse = await userHttpClient.PostAsJsonAsync(
-            "api/isUserValid",
-            new { userId });
-        userResponse.EnsureSuccessStatusCode();
-        if (!await userResponse.Content.ReadAsAsync<bool>())
+        if (!await IsValidAsync(userId))
         {
             throw new UserInvalidException
             {
@@ -35,22 +27,11 @@ public class OrderService
         }
 
         // reserve product for the session
-        var productHttpClient = new HttpClient
-        {
-            BaseAddress = new Uri("http://my-product"),
-        };
-        var productReserveResponse = await productHttpClient.PostAsJsonAsync(
-            "api/reserve",
-            new { productId, quantity });
-        productReserveResponse.EnsureSuccessStatusCode();
-        var sessionId = await productReserveResponse.Content.ReadAsAsync<Guid>();
+        var sessionId = await ReserveProductAsync(productId, quantity);
         if (sessionId == Guid.Empty)
         {
             // api return empty guid when product is not enough
-            ILogger logger = new NLog.Extensions.Logging.NLogLoggerFactory().CreateLogger(this.GetType());
-            logger.LogInformation(
-                "商品{productId}數量少於{quantity}",
-                productId, quantity);
+            LogProductNotEnough(productId, quantity);
             throw new ProductNotEnoughException
             {
                 ProductId = productId,
@@ -58,27 +39,23 @@ public class OrderService
         }
 
         // calculate total price
-        var productPriceResponse = await productHttpClient.PostAsJsonAsync(
-            "api/getPrice",
-            new { productId });
-        productPriceResponse.EnsureSuccessStatusCode();
-        int price = await productPriceResponse.Content.ReadAsAsync<int>();
-        int totalPrice = price * quantity;
+        var price = await GetPriceAsync(productId);
+        int totalPrice = CalculateTotalPrice(quantity, price);
 
         // save order
-        await using var connection = new SqlConnection("my connection string");
-        await connection.OpenAsync();
-        var orderId = await connection.ExecuteScalarAsync<Guid>(
-            "spSaveOrder",
-            new { userId, productId, quantity, totalPrice },
-            commandType: CommandType.StoredProcedure);
+        var orderId = await SaveOrderAsync(userId, productId, quantity, totalPrice);
 
         // complete product reserve session
-        await productHttpClient.PostAsJsonAsync(
-            "api/complete",
-            new { sessionId });
+        await CompleteProductReserveAsync(sessionId);
 
         // notify user for order established
+        await NotifyUserAsync(orderId);
+
+        return orderId;
+    }
+
+    private async Task NotifyUserAsync(Guid orderId)
+    {
         var message = new MimeMessage();
         message.From.Add(MailboxAddress.Parse("from email"));
         message.To.Add(MailboxAddress.Parse("user's email"));
@@ -91,7 +68,79 @@ public class OrderService
         await smtpClient.ConnectAsync("my smtp host");
         await smtpClient.SendAsync(message);
         await smtpClient.DisconnectAsync(true);
+    }
 
+    private async Task CompleteProductReserveAsync(Guid sessionId)
+    {
+        await new HttpClient
+        {
+            BaseAddress = new Uri("http://my-product"),
+        }.PostAsJsonAsync(
+            "api/complete",
+            new { sessionId });
+    }
+
+    private async Task<Guid> SaveOrderAsync(Guid userId, Guid productId, int quantity, int totalPrice)
+    {
+        await using var connection = new SqlConnection("my connection string");
+        await connection.OpenAsync();
+        var orderId = await connection.ExecuteScalarAsync<Guid>(
+            "spSaveOrder",
+            new { userId, productId, quantity, totalPrice },
+            commandType: CommandType.StoredProcedure);
         return orderId;
+    }
+
+    private int CalculateTotalPrice(int quantity, int price)
+    {
+        return price * quantity;
+    }
+
+    private async Task<int> GetPriceAsync(Guid productId)
+    {
+        var productPriceResponse = await new HttpClient
+        {
+            BaseAddress = new Uri("http://my-product"),
+        }.PostAsJsonAsync(
+            "api/getPrice",
+            new { productId });
+        productPriceResponse.EnsureSuccessStatusCode();
+        int price = await productPriceResponse.Content.ReadAsAsync<int>();
+        return price;
+    }
+
+    private void LogProductNotEnough(Guid productId, int quantity)
+    {
+        ILogger logger = new NLog.Extensions.Logging.NLogLoggerFactory().CreateLogger(this.GetType());
+        logger.LogInformation(
+            "商品{productId}數量少於{quantity}",
+            productId, quantity);
+    }
+
+    private async Task<Guid> ReserveProductAsync(Guid productId, int quantity)
+    {
+        var productReserveResponse = await new HttpClient
+        {
+            BaseAddress = new Uri("http://my-product"),
+        }.PostAsJsonAsync(
+            "api/reserve",
+            new { productId, quantity });
+        productReserveResponse.EnsureSuccessStatusCode();
+        var sessionId = await productReserveResponse.Content.ReadAsAsync<Guid>();
+        return sessionId;
+    }
+
+    private async Task<bool> IsValidAsync(Guid userId)
+    {
+        var userHttpClient = new HttpClient
+        {
+            BaseAddress = new Uri("http://my-users"),
+        };
+        var userResponse = await userHttpClient.PostAsJsonAsync(
+            "api/isUserValid",
+            new { userId });
+        userResponse.EnsureSuccessStatusCode();
+        var isValid = await userResponse.Content.ReadAsAsync<bool>();
+        return isValid;
     }
 }
